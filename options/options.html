@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glance Options Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="dashboard-wrapper">
+    <!-- Sidebar / Top Header -->
+    <header class="header">
+      <div class="logo-wrapper">
+        <svg class="logo-svg" viewBox="0 0 24 24" width="32" height="32">
+          <defs>
+            <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#06b6d4" />
+              <stop offset="100%" stop-color="#8b5cf6" />
+            </linearGradient>
+          </defs>
+          <path fill="url(#logo-grad)" d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+        </svg>
+        <div class="title-meta">
+          <h1>Glance</h1>
+          <p>Know before you click</p>
+        </div>
+      </div>
+      <div class="badge-version">v1.0.0</div>
+    </header>
+
+    <!-- Main settings layout -->
+    <div class="grid-layout">
+      <!-- Left Column: General Configuration -->
+      <section class="section-card">
+        <h2>General Preferences</h2>
+        <p class="section-intro">Configure how link previews act and load.</p>
+
+        <!-- Hover Delay Config -->
+        <div class="settings-group">
+          <div class="setting-item">
+            <div class="setting-info">
+              <label for="delay-slider" class="setting-title">Hover Delay</label>
+              <p class="setting-description">Time to wait before displaying the preview card (default is 400ms).</p>
+            </div>
+            <div class="slider-wrapper">
+              <input type="range" id="delay-slider" min="100" max="1500" step="50" value="400">
+              <span class="slider-value" id="delay-val">400 ms</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Local Cache Config -->
+        <div class="settings-group">
+          <div class="setting-item">
+            <div class="setting-info">
+              <span class="setting-title">Local Previews Cache</span>
+              <p class="setting-description">Glance caches metadata locally in IndexedDB to speed up future hovers.</p>
+            </div>
+            <div class="cache-control">
+              <div class="cache-stats" id="cache-stats">Calculating...</div>
+              <button class="btn btn-secondary" id="clear-cache-btn">Clear Cache</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Blacklist / Exclusion List -->
+      <section class="section-card">
+        <h2>Domain Exclusions</h2>
+        <p class="section-intro">Disable link previews on specific hostnames or websites.</p>
+
+        <!-- Blacklist control bar -->
+        <div class="blacklist-controls">
+          <div class="input-wrapper">
+            <input type="text" id="blacklist-input" placeholder="e.g. twitter.com" autocomplete="off">
+            <button class="btn btn-primary" id="add-domain-btn">Add Site</button>
+          </div>
+          <input type="text" id="blacklist-search" class="search-input" placeholder="Search exclusions...">
+        </div>
+
+        <!-- Exclusion list viewport -->
+        <div class="blacklist-container">
+          <ul class="blacklist" id="blacklist-ul">
+            <!-- Dynamically populated -->
+          </ul>
+          <div class="empty-state" id="empty-state" style="display: none;">
+            No domains excluded. Previews will load everywhere.
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div class="toast" id="toast">Settings Saved</div>
+
+  <script src="options.js"></script>
+</body>
+</html>
