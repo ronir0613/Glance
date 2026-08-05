@@ -26,6 +26,17 @@
         "content/content.js"
       ],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "all_frames": true,
+      "js": [
+        "content/frame-fixes.js"
+      ],
+      "run_at": "document_start"
     }
   ],
   "action": {

@@ -183,14 +183,16 @@
     style.textContent = GLANCE_CSS;
     shadow.appendChild(style);
 
+    const sbx1 = 'allow-scripts allow-forms allow-popups';
+    const sbx2 = 'allow-same-origin allow-presentation';
     const panel = document.createElement('div');
     panel.className = 'glance-panel';
     panel.innerHTML = `
       <!-- ① Iframe layer (frameable sites) -->
       <div class="glance-iframe-wrap" id="g-iframe-wrap">
-        <iframe class="glance-iframe" id="g-iframe"
+        <iframe class="glance-iframe" id="g-iframe" name="glance-preview"
           allow="autoplay; encrypted-media; picture-in-picture"
-          sandbox="allow-scripts allow-forms allow-popups allow-presentation"
+          sandbox="${sbx1} ${sbx2}"
           referrerpolicy="no-referrer">
         </iframe>
         <div class="glance-iframe-bar">
