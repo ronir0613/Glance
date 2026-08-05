@@ -4,7 +4,7 @@
   if (window.hasGlanceInjected) return;
   window.hasGlanceInjected = true;
 
-  let settings = { enabled: true, hoverDelay: 150, blacklist: [] };
+  let settings = { enabled: true, hoverDelay: 50, blacklist: [] };
 
   // ── Styles (inlined — no chrome-extension:// URL loading from page) ───────
   const GLANCE_CSS = `
@@ -19,8 +19,9 @@
       box-sizing: border-box;
       opacity: 0;
       transform: translateX(24px);
-      transition: opacity 0.2s cubic-bezier(0.16,1,0.3,1),
-                  transform 0.2s cubic-bezier(0.16,1,0.3,1);
+      will-change: transform, opacity;
+      transition: opacity 0.08s cubic-bezier(0.2, 0.8, 0.2, 1),
+                  transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
     .glance-panel.visible { opacity: 1; transform: translateX(0); pointer-events: auto; }
 
@@ -30,7 +31,8 @@
       overflow: hidden;
       border-left: 1px solid rgba(255,255,255,0.12);
       opacity: 0;
-      transition: opacity 0.35s ease;
+      will-change: opacity;
+      transition: opacity 0.08s ease;
     }
     .glance-iframe-wrap.visible { opacity: 1; }
 
@@ -101,7 +103,7 @@
     .shimmer {
       background: linear-gradient(90deg, #1c1c22 25%, #2f2f3a 37%, #1c1c22 63%);
       background-size: 200% 100%;
-      animation: shimmer 1.6s infinite linear;
+      animation: shimmer 1.0s infinite linear;
       border-radius: 4px;
     }
     .sk-domain { width: 110px; height: 12px; flex-shrink: 0; }
@@ -124,7 +126,7 @@
 
   // ── Settings ───────────────────────────────────────────────────────────────
   function loadSettings() {
-    chrome.storage.local.get({ enabled: true, hoverDelay: 150, blacklist: [] }, (items) => {
+    chrome.storage.local.get({ enabled: true, hoverDelay: 50, blacklist: [] }, (items) => {
       settings = items;
       if (!settings.enabled || isDomainExcluded(window.location.href)) hidePreview();
     });
@@ -136,12 +138,21 @@
     if (!settings.enabled || isDomainExcluded(window.location.href)) hidePreview();
   });
 
-  function isDomainExcluded(url) {
+  function isDomainExcluded(urlStr) {
     try {
-      const hostname = new URL(url).hostname;
+      const url = new URL(urlStr);
+      
+      // Hardcoded exclusion for Google Images
+      if (url.hostname.includes('google.') && url.pathname === '/search') {
+        if (url.searchParams.get('tbm') === 'isch' || url.searchParams.get('udm') === '2') {
+          return true;
+        }
+      }
+      if (url.hostname.startsWith('images.google.')) return true;
+
       return settings.blacklist.some(domain => {
         const esc = domain.replace(/\./g, '\\.');
-        return new RegExp(`(^|\\.)${esc}$`, 'i').test(hostname);
+        return new RegExp(`(^|\\.)${esc}$`, 'i').test(url.hostname);
       });
     } catch (e) { return false; }
   }
@@ -178,7 +189,8 @@
       <!-- ① Iframe layer (frameable sites) -->
       <div class="glance-iframe-wrap" id="g-iframe-wrap">
         <iframe class="glance-iframe" id="g-iframe"
-          sandbox="allow-scripts allow-forms allow-popups"
+          allow="autoplay; encrypted-media; picture-in-picture"
+          sandbox="allow-scripts allow-forms allow-popups allow-presentation"
           referrerpolicy="no-referrer">
         </iframe>
         <div class="glance-iframe-bar">
@@ -250,9 +262,9 @@
 
     iframe.onload = reveal;
 
-    // Safety timeout — reveal after 400ms even if onload hasn't fired
-    // This allows users to see the page progressively loading rather than waiting for heavy images
-    setTimeout(reveal, 400);
+    // Safety timeout — reveal after 50ms even if onload hasn't fired
+    // This allows users to see the page progressively loading instantly
+    setTimeout(reveal, 50);
 
     iframe.src = url;
   }
@@ -270,6 +282,34 @@
     }
   }
 
+  // ── URL Rewriting for Media ────────────────────────────────────────────────
+  function rewriteUrlForIframe(urlStr) {
+    try {
+      const url = new URL(urlStr);
+      // YouTube
+      if (url.hostname.includes('youtube.com') || url.hostname === 'youtu.be') {
+        let videoId = null;
+        if (url.hostname === 'youtu.be') {
+          videoId = url.pathname.slice(1);
+        } else if (url.pathname === '/watch') {
+          videoId = url.searchParams.get('v');
+        } else if (url.pathname.startsWith('/shorts/')) {
+          videoId = url.pathname.split('/')[2];
+        } else if (url.pathname.startsWith('/embed/')) {
+          return urlStr;
+        }
+        
+        if (videoId) {
+          videoId = videoId.split('?')[0];
+          return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0`;
+        }
+      }
+      return urlStr;
+    } catch (e) {
+      return urlStr;
+    }
+  }
+
   // ── Trigger fetch + display ────────────────────────────────────────────────
   function triggerPreview(url) {
     if (currentPreviewUrl === url) return;
@@ -281,7 +321,8 @@
     
     // With DNR rules in background.js stripping X-Frame-Options and CSP,
     // all sites are frameable. No need to fetch metadata anymore.
-    showIframe(url, domain);
+    const iframeUrl = rewriteUrlForIframe(url);
+    showIframe(iframeUrl, domain);
   }
 
   // ── Event Handlers ─────────────────────────────────────────────────────────
@@ -330,6 +371,25 @@
     return false;
   }
 
+  let preconnectedDomain = null;
+  function preconnectTo(url) {
+    try {
+      const origin = new URL(url).origin;
+      if (preconnectedDomain === origin) return;
+      preconnectedDomain = origin;
+      
+      const link = document.createElement('link');
+      link.rel = 'preconnect';
+      link.href = origin;
+      document.head.appendChild(link);
+      
+      const dns = document.createElement('link');
+      dns.rel = 'dns-prefetch';
+      dns.href = origin;
+      document.head.appendChild(dns);
+    } catch(e) {}
+  }
+
   function handleMouseOver(e) {
     if (!settings.enabled || isDomainExcluded(window.location.href)) return;
     
@@ -352,6 +412,8 @@
     }
     
     activeAnchor = anchor;
+    preconnectTo(anchor.href); // Start DNS/TCP/TLS handshake instantly
+
     hoverTimer = setTimeout(() => {
       if (activeAnchor === anchor) triggerPreview(anchor.href);
     }, settings.hoverDelay);
