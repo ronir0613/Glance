@@ -1,0 +1,48 @@
+/* Custom Modernized Scrollbars for Glance Preview Iframe */
+
+/* Root element scrollbar */
+.glance-preview-iframe::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.glance-preview-iframe::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.glance-preview-iframe::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.2s ease;
+}
+
+.glance-preview-iframe::-webkit-scrollbar-thumb:hover {
+  background: #06b6d4; /* Sleek brand cyan on hover */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Any scrollable sub-element scrollbars inside the iframe */
+.glance-preview-iframe *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.glance-preview-iframe *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.glance-preview-iframe *::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.3);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.glance-preview-iframe *::-webkit-scrollbar-thumb:hover {
+  background: #06b6d4;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}

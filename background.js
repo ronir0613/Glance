@@ -1,5 +1,26 @@
 // Glance Background Service Worker
 
+// ── Setup DNR Rules to bypass framing restrictions ───────────────────────
+chrome.declarativeNetRequest.updateDynamicRules({
+  removeRuleIds: [1],
+  addRules: [{
+    id: 1,
+    priority: 1,
+    action: {
+      type: "modifyHeaders",
+      responseHeaders: [
+        { header: "x-frame-options", operation: "remove" },
+        { header: "content-security-policy", operation: "remove" },
+        { header: "content-security-policy-report-only", operation: "remove" }
+      ]
+    },
+    condition: {
+      resourceTypes: ["sub_frame"]
+    }
+  }]
+}).catch(console.error);
+// ─────────────────────────────────────────────────────────────────────────
+
 // 24-hour Cache Time-To-Live
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 
@@ -256,8 +277,29 @@ async function handleFetchPreview(url, sendResponse) {
 
     clearTimeout(timeoutId);
 
+    // ── Frameability check ─────────────────────────────────────────────────
+    let frameable = true;
+    const xfo = (response.headers.get('X-Frame-Options') || '').toUpperCase().trim();
+    if (xfo === 'DENY' || xfo === 'SAMEORIGIN') frameable = false;
+
+    const csp = response.headers.get('Content-Security-Policy') || '';
+    if (csp.toLowerCase().includes('frame-ancestors')) {
+      const faMatch = csp.match(/frame-ancestors\s+([^;]+)/i);
+      if (faMatch) {
+        const val = faMatch[1].trim().toLowerCase();
+        // Non-frameable if only 'none' or only 'self' (no wildcard)
+        if (
+          val.includes("'none'") ||
+          (!val.includes('*') && val.includes("'self'") && !val.includes('http'))
+        ) {
+          frameable = false;
+        }
+      }
+    }
+    // ──────────────────────────────────────────────────────────────────────
+
     const contentType = response.headers.get('Content-Type') || '';
-    
+
     // Check if the response content is NOT HTML (e.g., pdf, image, zip)
     if (!contentType.includes('text/html')) {
       let typeLabel = 'Binary File';
@@ -278,6 +320,7 @@ async function handleFetchPreview(url, sendResponse) {
         description: `Direct link to a ${typeLabel} (${contentType.split(';')[0]}).`,
         image: contentType.includes('image/') ? url : '',
         domain,
+        frameable: false, // Binary files are not frameable
         timestamp: Date.now()
       };
 
@@ -295,6 +338,7 @@ async function handleFetchPreview(url, sendResponse) {
       description: parsed.description || 'No description available.',
       image: parsed.image,
       domain: parsed.domain,
+      frameable,
       timestamp: Date.now()
     };
 
