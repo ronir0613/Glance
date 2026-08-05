@@ -11,7 +11,10 @@ chrome.declarativeNetRequest.updateDynamicRules({
       responseHeaders: [
         { header: "x-frame-options", operation: "remove" },
         { header: "content-security-policy", operation: "remove" },
-        { header: "content-security-policy-report-only", operation: "remove" }
+        { header: "content-security-policy-report-only", operation: "remove" },
+        { header: "cross-origin-embedder-policy", operation: "remove" },
+        { header: "cross-origin-opener-policy", operation: "remove" },
+        { header: "cross-origin-resource-policy", operation: "remove" }
       ]
     },
     condition: {

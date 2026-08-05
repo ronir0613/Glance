@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Retrieve configurations and render
   chrome.storage.local.get({
-    hoverDelay: 400,
+    hoverDelay: 150,
     blacklist: []
   }, (items) => {
     // 1. Slider Setup

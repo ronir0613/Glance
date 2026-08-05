@@ -4,7 +4,7 @@
   if (window.hasGlanceInjected) return;
   window.hasGlanceInjected = true;
 
-  let settings = { enabled: true, hoverDelay: 400, blacklist: [] };
+  let settings = { enabled: true, hoverDelay: 150, blacklist: [] };
 
   // ── Styles (inlined — no chrome-extension:// URL loading from page) ───────
   const GLANCE_CSS = `
@@ -124,7 +124,7 @@
 
   // ── Settings ───────────────────────────────────────────────────────────────
   function loadSettings() {
-    chrome.storage.local.get({ enabled: true, hoverDelay: 400, blacklist: [] }, (items) => {
+    chrome.storage.local.get({ enabled: true, hoverDelay: 150, blacklist: [] }, (items) => {
       settings = items;
       if (!settings.enabled || isDomainExcluded(window.location.href)) hidePreview();
     });
@@ -250,8 +250,9 @@
 
     iframe.onload = reveal;
 
-    // Safety timeout — reveal after 6s even if onload hasn't fired
-    setTimeout(reveal, 6000);
+    // Safety timeout — reveal after 400ms even if onload hasn't fired
+    // This allows users to see the page progressively loading rather than waiting for heavy images
+    setTimeout(reveal, 400);
 
     iframe.src = url;
   }
