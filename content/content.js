@@ -183,12 +183,56 @@
       if (url.origin === curr.origin && url.pathname === curr.pathname && url.search === curr.search) return false;
       if (isDomainExcluded(anchor.href)) return false;
 
-      // Ignore giant block links (e.g. whole clickable cards)
-      const rect = anchor.getBoundingClientRect();
-      if (rect.width > 400 || rect.height > 200) return false;
+      // Ignore links without any text
+      const textContent = anchor.textContent.trim();
+      if (!textContent) return false;
 
-      // Ignore links without any text (e.g. purely structural or image wrapper links)
-      if (!anchor.textContent.trim()) return false;
+      // --- 1. Search Engine Bypass ---
+      // ONLY bypass for actual search result pages, NOT tools like Search Console
+      const searchEngineRegex = /^(www\.)?(google\.[a-z]+|bing\.com|duckduckgo\.com|yahoo\.com)$/i;
+      const isSearchPage = searchEngineRegex.test(curr.hostname) && (curr.pathname.startsWith('/search') || curr.pathname === '/');
+      
+      if (isSearchPage) {
+        const rect = anchor.getBoundingClientRect();
+        if (rect.width > 800 || rect.height > 300) return false;
+        return true;
+      }
+
+      // --- 2. Block UI Tabs & Navigation ---
+      // Explicitly block links inside common navigational areas and UI tab elements
+      const navSelectors = 'nav, header, footer, [role="tablist"], [role="tab"], [role="navigation"], [role="menu"]';
+      if (anchor.closest(navSelectors)) return false;
+
+      // --- 3. Block "Pure" Image Links ---
+      // If a link contains an image but has very little text, it's likely a standalone thumbnail or ad, not a rich article card.
+      if (anchor.querySelector('img, picture, video') && textContent.length < 15) {
+        return false;
+      }
+
+      // --- 4. Fallback Size Check ---
+      // Prevent massive full-page overlay links (but allow article cards which are typically ~100-300px tall)
+      const rect = anchor.getBoundingClientRect();
+      if (rect.width > 800 || rect.height > 400) return false;
+
+      // --- 5. The "Short UI Element" Check (Fixes custom nav bars & tabs) ---
+      // UI tabs (like Search Console) and nav menus often use complex nested divs instead of standard tags.
+      // However, physically, they are padded buttons. Inline text links are typically 16-24px tall.
+      // Material Design tabs (like Google uses) are always 36px or taller.
+      if (textContent.length < 35) {
+        const rect = anchor.getBoundingClientRect();
+        
+        // If a short link is taller than 32px, it has padding and is acting as a button or tab.
+        if (rect.height >= 32) {
+            return false;
+        }
+
+        // Also catch explicitly block-styled short links
+        const computed = window.getComputedStyle(anchor);
+        const isBlockLevel = ['block', 'flex', 'grid', 'inline-flex'].includes(computed.display);
+        if (isBlockLevel) {
+            return false;
+        }
+      }
 
       return true;
     } catch (e) { return false; }
@@ -208,6 +252,9 @@
     style.textContent = GLANCE_CSS;
     shadow.appendChild(style);
 
+    // Note: allow-same-origin causes a console warning when paired with allow-scripts,
+    // but it is strictly required for many modern SPAs (React/Next.js) to prevent them 
+    // from crashing due to localStorage security errors.
     const sbx1 = 'allow-scripts allow-forms allow-popups';
     const sbx2 = 'allow-same-origin allow-presentation';
     const panel = document.createElement('div');
