@@ -151,6 +151,12 @@
       if (socialDomains.some(d => url.hostname === d || url.hostname.endsWith('.' + d))) {
         return true;
       }
+
+      // Check for sensitive/annoying page types on the current host page
+      const excludedPattern = /\b(login|log-in|signin|sign-in|signup|sign-up|register|registration|join|auth|authenticate|authentication|oauth|sso|forgot-password|forgot_password|reset-password|password-reset|recover|checkout|billing|payment|bank|wallet|security|2fa|mfa|settings|account|preferences|admin|wp-admin|dashboard|cpanel|captcha|challenge)\b/i;
+      if (excludedPattern.test(url.pathname) || excludedPattern.test(url.hostname)) {
+        return true;
+      }
     } catch(e) {}
     return false;
   }
@@ -187,7 +193,29 @@
       const textContent = anchor.textContent.trim();
       if (!textContent) return false;
 
-      // --- 1. Search Engine Bypass ---
+      // Check for sensitive/annoying page types in the target URL
+      const excludedPattern = /\b(login|log-in|signin|sign-in|signup|sign-up|register|registration|join|auth|authenticate|authentication|oauth|sso|forgot-password|forgot_password|reset-password|password-reset|recover|checkout|billing|payment|bank|wallet|security|2fa|mfa|settings|account|preferences|admin|wp-admin|dashboard|cpanel|captcha|challenge)\b/i;
+      if (excludedPattern.test(url.pathname) || excludedPattern.test(url.hostname)) {
+        return false;
+      }
+
+      // --- 1. Block internal search engine links (Tabs, AI Mode, Pagination, etc.) ---
+      // If we are on a search engine, we shouldn't preview internal links to other search pages.
+      // This specifically prevents "AI Mode", "Images", and pagination links from popping up a preview.
+      const searchEngines = ['google.', 'bing.com', 'duckduckgo.com', 'yahoo.com'];
+      const isCurrSearch = searchEngines.some(se => curr.hostname.includes(se)) && (curr.pathname.startsWith('/search') || curr.pathname === '/');
+      const isTargetSearch = searchEngines.some(se => url.hostname.includes(se)) && (url.pathname.startsWith('/search') || url.pathname === '/');
+      
+      if (isCurrSearch && isTargetSearch) {
+        return false;
+      }
+
+      // --- 2. Block UI Tabs & Navigation ---
+      // Explicitly block links inside common navigational areas and UI tab elements
+      const navSelectors = 'nav, header, footer, [role="tablist"], [role="tab"], [role="navigation"], [role="menu"]';
+      if (anchor.closest(navSelectors)) return false;
+
+      // --- 3. Search Engine Bypass ---
       // ONLY bypass for actual search result pages, NOT tools like Search Console
       const searchEngineRegex = /^(www\.)?(google\.[a-z]+|bing\.com|duckduckgo\.com|yahoo\.com)$/i;
       const isSearchPage = searchEngineRegex.test(curr.hostname) && (curr.pathname.startsWith('/search') || curr.pathname === '/');
@@ -198,10 +226,7 @@
         return true;
       }
 
-      // --- 2. Block UI Tabs & Navigation ---
-      // Explicitly block links inside common navigational areas and UI tab elements
-      const navSelectors = 'nav, header, footer, [role="tablist"], [role="tab"], [role="navigation"], [role="menu"]';
-      if (anchor.closest(navSelectors)) return false;
+
 
       // --- 3. Block "Pure" Image Links ---
       // If a link contains an image but has very little text, it's likely a standalone thumbnail or ad, not a rich article card.
@@ -252,11 +277,11 @@
     style.textContent = GLANCE_CSS;
     shadow.appendChild(style);
 
-    // Note: allow-same-origin causes a console warning when paired with allow-scripts,
-    // but it is strictly required for many modern SPAs (React/Next.js) to prevent them 
-    // from crashing due to localStorage security errors.
+    // Note: allow-same-origin was previously here but it causes a sandbox escape warning
+    // in Chrome when paired with allow-scripts. We remove it to keep the extension error-free,
+    // though some SPAs might fail to read localStorage in the preview.
     const sbx1 = 'allow-scripts allow-forms allow-popups';
-    const sbx2 = 'allow-same-origin allow-presentation';
+    const sbx2 = 'allow-presentation';
     const panel = document.createElement('div');
     panel.className = 'glance-panel';
     panel.innerHTML = `
