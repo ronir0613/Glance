@@ -128,15 +128,32 @@
   function loadSettings() {
     chrome.storage.local.get({ enabled: true, hoverDelay: 50, blacklist: [] }, (items) => {
       settings = items;
-      if (!settings.enabled || isDomainExcluded(window.location.href)) hidePreview();
+      if (!settings.enabled || isHostPageExcluded(window.location.href)) hidePreview();
     });
   }
   loadSettings();
 
   chrome.storage.onChanged.addListener((changes) => {
     for (let key in changes) settings[key] = changes[key].newValue;
-    if (!settings.enabled || isDomainExcluded(window.location.href)) hidePreview();
+    if (!settings.enabled || isHostPageExcluded(window.location.href)) hidePreview();
   });
+
+  function isHostPageExcluded(urlStr) {
+    if (isDomainExcluded(urlStr)) return true;
+    try {
+      const url = new URL(urlStr);
+      // Disable extension entirely when the user is ON these social media sites
+      const socialDomains = [
+        'facebook.com', 'twitter.com', 'x.com', 'instagram.com', 
+        'linkedin.com', 'reddit.com', 'tiktok.com', 'discord.com',
+        'whatsapp.com', 'youtube.com', 'messenger.com'
+      ];
+      if (socialDomains.some(d => url.hostname === d || url.hostname.endsWith('.' + d))) {
+        return true;
+      }
+    } catch(e) {}
+    return false;
+  }
 
   function isDomainExcluded(urlStr) {
     try {
@@ -165,6 +182,14 @@
       const curr = new URL(window.location.href);
       if (url.origin === curr.origin && url.pathname === curr.pathname && url.search === curr.search) return false;
       if (isDomainExcluded(anchor.href)) return false;
+
+      // Ignore giant block links (e.g. whole clickable cards)
+      const rect = anchor.getBoundingClientRect();
+      if (rect.width > 400 || rect.height > 200) return false;
+
+      // Ignore links without any text (e.g. purely structural or image wrapper links)
+      if (!anchor.textContent.trim()) return false;
+
       return true;
     } catch (e) { return false; }
   }
@@ -393,7 +418,7 @@
   }
 
   function handleMouseOver(e) {
-    if (!settings.enabled || isDomainExcluded(window.location.href)) return;
+    if (!settings.enabled || isHostPageExcluded(window.location.href)) return;
     
     const anchor = e.target.closest('a');
     const inSafe = isSafeZone(e, e.target);
