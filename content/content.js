@@ -25,6 +25,18 @@
     }
     .glance-panel.visible { opacity: 1; transform: translateX(0); pointer-events: auto; }
 
+    /* ── Backdrop layer ───────────────────────────────────────────────────── */
+    .glance-backdrop {
+      position: fixed; inset: 0;
+      z-index: 2147483646;
+      pointer-events: none;
+      backdrop-filter: blur(3px);
+      background: rgba(0,0,0,0.1);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    .glance-backdrop.visible { opacity: 1; }
+
     /* ── Iframe layer ─────────────────────────────────────────────────────── */
     .glance-iframe-wrap {
       position: absolute; inset: 0;
@@ -36,11 +48,10 @@
     }
     .glance-iframe-wrap.visible { opacity: 1; }
 
-    /* Scale trick: render at 2x, scale back to 1x = shows ~2x viewport area */
+    /* Standard responsive layout (removed scale trick) */
     .glance-iframe {
       position: absolute; top: 0; left: 0;
-      width: 200%; height: 200%;
-      transform: scale(0.5); transform-origin: top left;
+      width: 100%; height: 100%;
       border: none;
       background: #fff;
       display: block;
@@ -189,9 +200,10 @@
       if (url.origin === curr.origin && url.pathname === curr.pathname && url.search === curr.search) return false;
       if (isDomainExcluded(anchor.href)) return false;
 
-      // Ignore links without any text
+      // Ignore links without any text or media
       const textContent = anchor.textContent.trim();
-      if (!textContent) return false;
+      const hasMedia = anchor.querySelector('img, picture, video, svg');
+      if (!textContent && !hasMedia) return false;
 
       // Check for sensitive/annoying page types in the target URL
       const excludedPattern = /\b(login|log-in|signin|sign-in|signup|sign-up|register|registration|join|auth|authenticate|authentication|oauth|sso|forgot-password|forgot_password|reset-password|password-reset|recover|checkout|billing|payment|bank|wallet|security|2fa|mfa|settings|account|preferences|admin|wp-admin|dashboard|cpanel|captcha|challenge)\b/i;
@@ -222,7 +234,7 @@
       
       if (isSearchPage) {
         const rect = anchor.getBoundingClientRect();
-        if (rect.width > 800 || rect.height > 300) return false;
+        if (rect.width > 800 || rect.height > 500) return false;
         return true;
       }
 
@@ -277,10 +289,14 @@
     style.textContent = GLANCE_CSS;
     shadow.appendChild(style);
 
-    // Note: allow-same-origin was previously here but it causes a sandbox escape warning
-    // in Chrome when paired with allow-scripts. We remove it to keep the extension error-free,
-    // though some SPAs might fail to read localStorage in the preview.
-    const sbx1 = 'allow-scripts allow-forms allow-popups';
+    const backdrop = document.createElement('div');
+    backdrop.className = 'glance-backdrop';
+    backdrop.id = 'g-backdrop';
+    shadow.appendChild(backdrop);
+
+    // We MUST include allow-same-origin so SPAs (like YouTube/IMDb) can read localStorage,
+    // otherwise they crash and render a blank white screen.
+    const sbx1 = 'allow-scripts allow-forms allow-popups allow-same-origin';
     const sbx2 = 'allow-presentation';
     const panel = document.createElement('div');
     panel.className = 'glance-panel';
@@ -341,6 +357,7 @@
       $('g-bar-fav').src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
     } catch(e) {}
 
+    $('g-backdrop').classList.add('visible');
     getPanel().classList.add('visible');
   }
 
@@ -374,6 +391,7 @@
   function hidePreview() {
     const panel = getPanel();
     if (panel) panel.classList.remove('visible');
+    if ($('g-backdrop')) $('g-backdrop').classList.remove('visible');
     currentPreviewUrl = null;
     if (glanceHostElement) {
       const iframe = glanceHostElement.shadowRoot.getElementById('g-iframe');
@@ -384,7 +402,17 @@
   // ── URL Rewriting for Media ────────────────────────────────────────────────
   function rewriteUrlForIframe(urlStr) {
     try {
-      const url = new URL(urlStr);
+      let url = new URL(urlStr);
+
+      // Handle Google Search Redirect URLs
+      if (url.hostname.includes('google.') && url.pathname === '/url') {
+        const actualUrl = url.searchParams.get('url') || url.searchParams.get('q');
+        if (actualUrl) {
+          url = new URL(actualUrl);
+          urlStr = actualUrl;
+        }
+      }
+
       // YouTube
       if (url.hostname.includes('youtube.com') || url.hostname === 'youtu.be') {
         let videoId = null;
