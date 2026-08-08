@@ -8,19 +8,27 @@
 .glance-panel {
   position: fixed;
   top: 0;
-  right: 0;
   width: 50vw;
   height: 100vh;
   z-index: 2147483647;
   pointer-events: none; /* Prevents hover/flicker loops */
   box-sizing: border-box;
 
-  /* Entry: slide in from right */
+  /* Entry animation base */
   opacity: 0;
-  transform: translateX(32px);
   transition:
     opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
     transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glance-panel.right {
+  right: 0;
+  transform: translateX(32px);
+}
+
+.glance-panel.left {
+  left: 0;
+  transform: translateX(-32px);
 }
 
 .glance-panel.visible {

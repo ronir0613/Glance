@@ -1,8 +1,6 @@
 // Glance Options Dashboard Handler
 
 document.addEventListener('DOMContentLoaded', () => {
-  const delaySlider = document.getElementById('delay-slider');
-  const delayVal = document.getElementById('delay-val');
   const cacheStats = document.getElementById('cache-stats');
   const clearCacheBtn = document.getElementById('clear-cache-btn');
   
@@ -19,14 +17,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Retrieve configurations and render
   chrome.storage.local.get({
-    hoverDelay: 50,
     blacklist: []
   }, (items) => {
-    // 1. Slider Setup
-    delaySlider.value = items.hoverDelay;
-    delayVal.textContent = `${items.hoverDelay} ms`;
-    
-    // 2. Blacklist Setup
+    // 1. Blacklist Setup
     blacklist = items.blacklist;
     renderBlacklist();
   });
@@ -53,19 +46,6 @@ document.addEventListener('DOMContentLoaded', () => {
       toast.classList.remove('show');
     }, 2000);
   }
-
-  // Handle delay slider change
-  delaySlider.addEventListener('input', () => {
-    const val = delaySlider.value;
-    delayVal.textContent = `${val} ms`;
-  });
-
-  delaySlider.addEventListener('change', () => {
-    const val = parseInt(delaySlider.value, 10);
-    chrome.storage.local.set({ hoverDelay: val }, () => {
-      showToast(`Hover delay set to ${val}ms`);
-    });
-  });
 
   // Clear previews cache
   clearCacheBtn.addEventListener('click', () => {

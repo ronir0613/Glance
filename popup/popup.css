@@ -2,14 +2,13 @@
 
 :root {
   --bg-dark: #09090b;       /* Zinc 950 */
-  --bg-card: #18181b;       /* Zinc 900 */
+  --bg-card: #09090b;       /* Zinc 950 */
   --border-color: #27272a;  /* Zinc 800 */
-  --text-primary: #f4f4f5;  /* Zinc 100 */
-  --text-muted: #8e8e93;    /* Apple Gray */
-  --color-teal: #06b6d4;    /* Teal 500 */
-  --color-violet: #8b5cf6;  /* Violet 500 */
+  --text-primary: #fafafa;  /* Zinc 100 */
+  --text-muted: #a1a1aa;    /* Apple Gray */
+  --color-accent: #ccff00;  /* Electric Lime */
   --color-red: #ef4444;     /* Red 500 */
-  --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 body {
@@ -45,16 +44,14 @@ body {
 }
 
 .logo-svg {
-  filter: drop-shadow(0 2px 8px rgba(6, 182, 212, 0.4));
+  color: var(--color-accent);
 }
 
 .app-name {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   letter-spacing: -0.01em;
-  background: linear-gradient(135deg, var(--color-teal), var(--color-violet));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--text-primary);
 }
 
 .status-badge {
@@ -63,10 +60,10 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 2px 6px;
-  border-radius: 9999px;
-  background: rgba(6, 182, 212, 0.12);
-  color: var(--color-teal);
-  border: 1px solid rgba(6, 182, 212, 0.2);
+  border-radius: 4px;
+  background: var(--border-color);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   transition: all 0.2s ease;
 }
 
@@ -84,9 +81,9 @@ body {
 }
 
 .control-card {
-  background: var(--bg-card);
+  background: transparent;
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 6px;
   padding: 12px;
   display: flex;
   align-items: center;
@@ -159,7 +156,7 @@ body {
 }
 
 input:checked + .slider {
-  background: linear-gradient(135deg, var(--color-teal), var(--color-violet));
+  background: var(--color-accent);
 }
 
 input:checked + .slider:before {
@@ -198,8 +195,7 @@ input:disabled + .slider {
 }
 
 .status-dot.active {
-  background-color: var(--color-teal);
-  box-shadow: 0 0 6px rgba(6, 182, 212, 0.6);
+  background-color: var(--color-accent);
 }
 
 .domain-text {

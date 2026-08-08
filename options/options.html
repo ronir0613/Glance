@@ -12,14 +12,9 @@
     <!-- Sidebar / Top Header -->
     <header class="header">
       <div class="logo-wrapper">
-        <svg class="logo-svg" viewBox="0 0 24 24" width="32" height="32">
-          <defs>
-            <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#06b6d4" />
-              <stop offset="100%" stop-color="#8b5cf6" />
-            </linearGradient>
-          </defs>
-          <path fill="url(#logo-grad)" d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+        <svg class="logo-svg" viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
+          <path d="M11 2 A10 10 0 0 0 11 22 Z" />
+          <path d="M13 12 L23 12 A10 10 0 0 1 13 22 Z" />
         </svg>
         <div class="title-meta">
           <h1>Glance</h1>
@@ -35,20 +30,6 @@
       <section class="section-card">
         <h2>General Preferences</h2>
         <p class="section-intro">Configure how link previews act and load.</p>
-
-        <!-- Hover Delay Config -->
-        <div class="settings-group">
-          <div class="setting-item">
-            <div class="setting-info">
-              <label for="delay-slider" class="setting-title">Hover Delay</label>
-              <p class="setting-description">Time to wait before displaying the preview card (default is 400ms).</p>
-            </div>
-            <div class="slider-wrapper">
-              <input type="range" id="delay-slider" min="100" max="1500" step="50" value="400">
-              <span class="slider-value" id="delay-val">400 ms</span>
-            </div>
-          </div>
-        </div>
 
         <!-- Local Cache Config -->
         <div class="settings-group">
@@ -84,7 +65,7 @@
           <ul class="blacklist" id="blacklist-ul">
             <!-- Dynamically populated -->
           </ul>
-          <div class="empty-state" id="empty-state" style="display: none;">
+          <div class="empty-state" id="empty-state">
             No domains excluded. Previews will load everywhere.
           </div>
         </div>

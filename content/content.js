@@ -4,7 +4,7 @@
   if (window.hasGlanceInjected) return;
   window.hasGlanceInjected = true;
 
-  let settings = { enabled: true, hoverDelay: 50, blacklist: [] };
+  let settings = { enabled: true, blacklist: [] };
 
   // ── Styles (inlined — no chrome-extension:// URL loading from page) ───────
   const GLANCE_CSS = `
@@ -12,17 +12,18 @@
 
     /* ── Panel shell ──────────────────────────────────────────────────────── */
     .glance-panel {
-      position: fixed; top: 0; right: 0;
+      position: fixed; top: 0;
       width: 50vw; height: 100vh;
       z-index: 2147483647;
       pointer-events: none;
       box-sizing: border-box;
       opacity: 0;
-      transform: translateX(24px);
       will-change: transform, opacity;
       transition: opacity 0.08s cubic-bezier(0.2, 0.8, 0.2, 1),
                   transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
+    .glance-panel.right { right: 0; transform: translateX(24px); }
+    .glance-panel.left { left: 0; transform: translateX(-24px); }
     .glance-panel.visible { opacity: 1; transform: translateX(0); pointer-events: auto; }
 
     /* ── Backdrop layer ───────────────────────────────────────────────────── */
@@ -41,11 +42,12 @@
     .glance-iframe-wrap {
       position: absolute; inset: 0;
       overflow: hidden;
-      border-left: 1px solid rgba(255,255,255,0.12);
       opacity: 0;
       will-change: opacity;
       transition: opacity 0.08s ease;
     }
+    .glance-panel.right .glance-iframe-wrap { border-left: 1px solid rgba(255,255,255,0.12); border-right: none; }
+    .glance-panel.left .glance-iframe-wrap { border-right: 1px solid rgba(255,255,255,0.12); border-left: none; }
     .glance-iframe-wrap.visible { opacity: 1; }
 
     /* Standard responsive layout (removed scale trick) */
@@ -80,19 +82,23 @@
       background: rgba(8,8,12,0.5);
       backdrop-filter: blur(28px) saturate(140%) brightness(0.55);
       -webkit-backdrop-filter: blur(28px) saturate(140%) brightness(0.55);
-      border-left: 1px solid rgba(255,255,255,0.08);
       box-sizing: border-box;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       color: #f4f4f5;
     }
-    /* Accent left edge line */
+    .glance-panel.right .glass { border-left: 1px solid rgba(255,255,255,0.08); border-right: none; }
+    .glance-panel.left .glass { border-right: 1px solid rgba(255,255,255,0.08); border-left: none; }
+
+    /* Accent edge line */
     .glass::before {
-      content: ''; position: absolute; left: 0; top: 50%;
+      content: ''; position: absolute; top: 50%;
       transform: translateY(-50%);
       width: 2px; height: 120px;
       background: linear-gradient(180deg, transparent, #06b6d4 50%, transparent);
       border-radius: 1px; opacity: 0.7;
     }
+    .glance-panel.right .glass::before { left: 0; right: auto; }
+    .glance-panel.left .glass::before { right: 0; left: auto; }
 
     /* ── Loading overlay ──────────────────────────────────────────────────── */
     .glance-loading {
@@ -127,6 +133,30 @@
     .sk-col    { display: flex; flex-direction: column; }
     /* ── Header: favicon + domain ─────────────────────────────────────────── */
     .glance-header { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+
+    /* ── Frustration Toast ────────────────────────────────────────────────── */
+    .glance-toast {
+      position: fixed; top: 16px; right: 16px; transform: translateX(20px);
+      background: #09090b; border: 1px solid #27272a; border-radius: 6px;
+      padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+      color: #fafafa; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+      font-size: 13px; font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      z-index: 2147483647; opacity: 0; pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .glance-toast.visible { opacity: 1; transform: translateX(0); pointer-events: auto; }
+    .glance-toast-btn {
+      background: #ccff00; color: #09090b; border: none; border-radius: 4px;
+      padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .glance-toast-btn:hover { background: #b3e600; }
+    .glance-toast-dismiss {
+      background: transparent; color: #a1a1aa; border: none; cursor: pointer;
+      font-size: 12px; padding: 6px;
+    }
+    .glance-toast-dismiss:hover { color: #fafafa; }
   `;
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -135,9 +165,15 @@
   let currentPreviewUrl = null;
   let glanceHostElement = null;
 
+  // Frustration tracking state
+  let previewStartTime = 0;
+  let frustrationCount = 0;
+  let lastFrustrationUrl = null;
+  let hasPromptedFrustration = false;
+
   // ── Settings ───────────────────────────────────────────────────────────────
   function loadSettings() {
-    chrome.storage.local.get({ enabled: true, hoverDelay: 50, blacklist: [] }, (items) => {
+    chrome.storage.local.get({ enabled: true, blacklist: [] }, (items) => {
       settings = items;
       if (!settings.enabled || isHostPageExcluded(window.location.href)) hidePreview();
     });
@@ -294,10 +330,6 @@
     backdrop.id = 'g-backdrop';
     shadow.appendChild(backdrop);
 
-    // We MUST include allow-same-origin so SPAs (like YouTube/IMDb) can read localStorage,
-    // otherwise they crash and render a blank white screen.
-    const sbx1 = 'allow-scripts allow-forms allow-popups allow-same-origin';
-    const sbx2 = 'allow-presentation';
     const panel = document.createElement('div');
     panel.className = 'glance-panel';
     panel.innerHTML = `
@@ -305,7 +337,6 @@
       <div class="glance-iframe-wrap" id="g-iframe-wrap">
         <iframe class="glance-iframe" id="g-iframe" name="glance-preview"
           allow="autoplay; encrypted-media; picture-in-picture"
-          sandbox="${sbx1} ${sbx2}"
           referrerpolicy="no-referrer">
         </iframe>
         <div class="glance-iframe-bar">
@@ -313,8 +344,6 @@
           <span class="glance-iframe-bar-domain" id="g-bar-domain"></span>
         </div>
       </div>
-
-      <!-- Metadata fallback layer removed -->
 
       <!-- ③ Loading overlay (always visible first, fades out) -->
       <div class="glance-loading glass" id="g-loading">
@@ -335,6 +364,18 @@
     `;
 
     shadow.appendChild(panel);
+
+    // ⑤ Frustration Toast (Independent of the panel)
+    const toast = document.createElement('div');
+    toast.className = 'glance-toast';
+    toast.id = 'g-toast';
+    toast.innerHTML = `
+      <span>Glance closing too fast here?</span>
+      <button class="glance-toast-btn" id="g-toast-disable">Disable on this site</button>
+      <button class="glance-toast-dismiss" id="g-toast-dismiss">Dismiss</button>
+    `;
+    shadow.appendChild(toast);
+
     document.body.appendChild(glanceHostElement);
   }
 
@@ -349,6 +390,20 @@
     $('g-iframe-wrap').classList.remove('visible');
     $('g-iframe').src = 'about:blank';
     $('g-loading').classList.remove('hidden');
+
+    // Position panel dynamically based on anchor
+    const panel = getPanel();
+    if (activeAnchor) {
+      const rect = activeAnchor.getBoundingClientRect();
+      const anchorCenterX = rect.left + rect.width / 2;
+      if (anchorCenterX > window.innerWidth / 2) {
+        panel.classList.remove('right');
+        panel.classList.add('left');
+      } else {
+        panel.classList.remove('left');
+        panel.classList.add('right');
+      }
+    }
 
     // Pre-fill bar domain immediately
     try {
@@ -389,6 +444,32 @@
 
   // ── Hide Preview ───────────────────────────────────────────────────────────
   function hidePreview() {
+    // Frustration Tracking Logic
+    if (currentPreviewUrl && !hasPromptedFrustration) {
+      const duration = Date.now() - previewStartTime;
+      
+      // If closed under 600ms
+      if (duration < 600) {
+        if (lastFrustrationUrl === currentPreviewUrl) {
+          frustrationCount++;
+        } else {
+          lastFrustrationUrl = currentPreviewUrl;
+          frustrationCount = 1;
+        }
+
+        // 3 consecutive rapid closures on the SAME link
+        if (frustrationCount >= 3) {
+          hasPromptedFrustration = true;
+          showFrustrationToast();
+        }
+      } 
+      // If open successfully for a while, reset count
+      else if (duration > 1500) {
+        frustrationCount = 0;
+        lastFrustrationUrl = null;
+      }
+    }
+
     const panel = getPanel();
     if (panel) panel.classList.remove('visible');
     if ($('g-backdrop')) $('g-backdrop').classList.remove('visible');
@@ -397,6 +478,29 @@
       const iframe = glanceHostElement.shadowRoot.getElementById('g-iframe');
       if (iframe) iframe.src = 'about:blank';
     }
+  }
+
+  // ── Frustration Toast ──────────────────────────────────────────────────────
+  function showFrustrationToast() {
+    const toast = $('g-toast');
+    if (!toast) return;
+    toast.classList.add('visible');
+
+    const disableBtn = $('g-toast-disable');
+    const dismissBtn = $('g-toast-dismiss');
+
+    disableBtn.onclick = () => {
+      const hostname = window.location.hostname;
+      settings.blacklist.push(hostname);
+      chrome.storage.local.set({ blacklist: settings.blacklist }, () => {
+        toast.classList.remove('visible');
+        hidePreview();
+      });
+    };
+
+    dismissBtn.onclick = () => {
+      toast.classList.remove('visible');
+    };
   }
 
   // ── URL Rewriting for Media ────────────────────────────────────────────────
@@ -441,6 +545,7 @@
   function triggerPreview(url) {
     if (currentPreviewUrl === url) return;
     currentPreviewUrl = url;
+    previewStartTime = Date.now();
     showLoadingState(url);
 
     let domain = url;
@@ -459,18 +564,18 @@
       if (element === glanceHostElement || (glanceHostElement && glanceHostElement.contains(element))) return true;
     }
     
-    // 2. Check panel bounds (for entering cross-origin iframes)
+    // 2. Check panel bounds (with buffer for CSS transform animations)
     const panel = getPanel();
     if (panel && panel.classList.contains('visible')) {
       const rect = panel.getBoundingClientRect();
-      if (e.clientX >= rect.left && e.clientX <= rect.right &&
+      if (e.clientX >= rect.left - 32 && e.clientX <= rect.right + 32 &&
           e.clientY >= rect.top && e.clientY <= rect.bottom) {
         return true;
       }
     }
 
     // 3. Check active anchor and safe triangle
-    if (activeAnchor && panel && panel.classList.contains('visible')) {
+    if (activeAnchor) {
       const anchorRect = activeAnchor.getBoundingClientRect();
       const pt = { x: e.clientX, y: e.clientY };
       
@@ -480,8 +585,13 @@
         return true;
       }
 
-      // Safe triangle from anchor to right panel
-      const v1 = { x: anchorRect.right, y: anchorRect.top + anchorRect.height / 2 };
+      // Safe triangle from anchor to expected panel position
+      const anchorCenterX = anchorRect.left + anchorRect.width / 2;
+      const isPanelLeft = anchorCenterX > window.innerWidth / 2;
+      
+      const v1 = isPanelLeft
+        ? { x: anchorRect.left, y: anchorRect.top + anchorRect.height / 2 }
+        : { x: anchorRect.right, y: anchorRect.top + anchorRect.height / 2 };
       const v2 = { x: window.innerWidth / 2, y: 0 };
       const v3 = { x: window.innerWidth / 2, y: window.innerHeight };
       
@@ -543,7 +653,7 @@
 
     hoverTimer = setTimeout(() => {
       if (activeAnchor === anchor) triggerPreview(anchor.href);
-    }, settings.hoverDelay);
+    }, 50);
   }
 
   function handleMouseOut(e) {
